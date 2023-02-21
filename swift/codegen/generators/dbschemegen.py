@@ -18,8 +18,8 @@ import typing
 import inflection
 
 from swift.codegen.lib import schema
+from swift.codegen.loaders import schemaloader
 from swift.codegen.lib.dbscheme import *
-from typing import Set, List
 
 log = logging.getLogger(__name__)
 
@@ -38,10 +38,12 @@ def dbtype(typename: str, add_or_none_except: typing.Optional[str] = None) -> st
     return typename
 
 
-def cls_to_dbscheme(cls: schema.Class, add_or_none_except: typing.Optional[str] = None):
+def cls_to_dbscheme(cls: schema.Class, lookup: typing.Dict[str, schema.Class], add_or_none_except: typing.Optional[str] = None):
     """ Yield all dbscheme entities needed to model class `cls` """
+    if cls.ipa:
+        return
     if cls.derived:
-        yield Union(dbtype(cls.name), (dbtype(c) for c in cls.derived))
+        yield Union(dbtype(cls.name), (dbtype(c) for c in cls.derived if not lookup[c].ipa))
     dir = pathlib.Path(cls.group) if cls.group else None
     # output a table specific to a class only if it is a leaf class or it has 1-to-1 properties
     # Leaf classes need a table to bind the `@` ids
@@ -96,7 +98,7 @@ def cls_to_dbscheme(cls: schema.Class, add_or_none_except: typing.Optional[str] 
 
 def get_declarations(data: schema.Schema):
     add_or_none_except = data.root_class.name if data.null else None
-    declarations = [d for cls in data.classes.values() for d in cls_to_dbscheme(cls, add_or_none_except)]
+    declarations = [d for cls in data.classes.values() for d in cls_to_dbscheme(cls, data.classes, add_or_none_except)]
     if data.null:
         property_classes = {
             prop.type for cls in data.classes.values() for prop in cls.properties
@@ -121,7 +123,7 @@ def generate(opts, renderer):
     input = opts.schema
     out = opts.dbscheme
 
-    data = schema.load_file(input)
+    data = schemaloader.load_file(input)
 
     dbscheme = Scheme(src=input.relative_to(opts.swift_dir),
                       includes=get_includes(data, include_dir=input.parent, swift_dir=opts.swift_dir),

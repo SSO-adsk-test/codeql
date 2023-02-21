@@ -17,6 +17,7 @@ import typing
 import inflection
 
 from swift.codegen.lib import cpp, schema
+from swift.codegen.loaders import schemaloader
 
 
 def _get_type(t: str, add_or_none_except: typing.Optional[str] = None) -> str:
@@ -83,13 +84,14 @@ class Processor:
     def get_classes(self):
         ret = {'': []}
         for k, cls in self._classmap.items():
-            ret.setdefault(cls.group, []).append(self._get_class(cls.name))
+            if not cls.ipa:
+                ret.setdefault(cls.group, []).append(self._get_class(cls.name))
         return ret
 
 
 def generate(opts, renderer):
     assert opts.cpp_output
-    processor = Processor(schema.load_file(opts.schema))
+    processor = Processor(schemaloader.load_file(opts.schema))
     out = opts.cpp_output
     for dir, classes in processor.get_classes().items():
         renderer.render(cpp.ClassList(classes, opts.schema,

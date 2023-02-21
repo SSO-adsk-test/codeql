@@ -47,4 +47,14 @@ class Foobar2
   def self.foo(target)
     IO.popen("cat #{target}", "w") # NOT OK
   end
+
+  def arrayJoin(x)
+    IO.popen(x.join(' '), "w") # NOT OK
+
+    IO.popen(["foo", "bar", x].join(' '), "w") # NOT OK
+  end
+
+  def string_concat(x) 
+    IO.popen("cat " + x, "w") # NOT OK
+  end
 end
